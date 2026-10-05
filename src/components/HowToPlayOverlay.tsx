@@ -33,28 +33,28 @@ const HOW_TO_STEPS = [
       'Tap the operation blocks IN ORDER to wire the signal through the 2-layer net.',
   },
   {
-    stage: 'STAGE 4 • LOSS',
-    icon: '📈',
+    stage: 'STAGE 4 • CHAPTER CHECK',
+    icon: '🧠',
     accent: 'from-neon-fuchsia/30 to-neon-amber/10',
     ring: 'ring-neon-fuchsia/50',
     body:
-      'Compute cross-entropy loss. Read the graph if you get stuck!',
+      'Answer quick multiple-choice questions about forward passes, PCA, and ReLU.',
   },
   {
-    stage: 'STAGE 5 • CHAIN RULE',
-    icon: '🔗',
+    stage: 'STAGE 5 • FORWARD PASS',
+    icon: '➡️',
     accent: 'from-neon-lime/25 to-neon-lime/5',
     ring: 'ring-neon-lime/50',
     body:
-      'Connect the derivative chain. Wrong order? CHAIN SNAPS! 💥',
+      'Put the input, weighted sum, activation, and output in the order data moves through a layer.',
   },
   {
-    stage: 'STAGE 6 • TRAIN XOR',
+    stage: 'STAGE 6 • SOLVE XOR',
     icon: '🎯',
     accent: 'from-neon-amber/30 to-post/10',
     ring: 'ring-neon-amber/50',
     body:
-      'Press TRAIN EPOCH again and again. Watch the straight line BEND into a curve that solves XOR!',
+      'Label the four input pairs, decide whether one straight line can separate the outputs, then start the network once and watch its hidden layer learn the pattern.',
   },
 ] as const
 

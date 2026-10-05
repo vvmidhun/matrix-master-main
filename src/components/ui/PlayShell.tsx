@@ -21,8 +21,6 @@ export interface PlayShellProps {
 export function PlayShell({
   stageLabel,
   progress,
-  stageNumber,
-  totalStages,
   coachMood,
   coachLine,
   coachTitle = 'Coach Nova',
@@ -33,7 +31,7 @@ export function PlayShell({
   footer,
 }: PlayShellProps) {
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="play-shell flex h-full w-full flex-col">
       <header
         className="relative z-10 flex shrink-0 items-center gap-3 px-4 py-3 sm:px-6"
         style={{
@@ -41,17 +39,12 @@ export function PlayShell({
         }}
       >
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="rounded-full bg-paper/25 px-3 py-1 backdrop-blur">
-            <span className="font-display text-xs font-extrabold tracking-[0.2em] text-white/90 sm:text-sm">
-              STAGE {stageNumber != null && totalStages != null ? `${stageNumber} / ${totalStages}` : ''}
-            </span>
-          </div>
-          <h1
-            className="font-display text-lg font-extrabold tracking-tight text-white drop-shadow sm:text-2xl"
-            style={{ textShadow: '0 0 18px rgba(232, 121, 249, 0.55)' }}
+          <h3
+            className="font-display font-extrabold tracking-tight text-white drop-shadow text-lg"
+            style={{ textShadow: '0 0 15px rgba(232, 121, 249, 0.55)' }}
           >
             {stageLabel}
-          </h1>
+          </h3>
         </div>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
@@ -72,9 +65,9 @@ export function PlayShell({
         </div>
       </header>
 
-      <div className="shrink-0 px-3 pt-3 sm:px-5 sm:pt-4">
-        <div className="flex items-start gap-3 rounded-2xl bg-glass-bg p-3 ring-2 ring-glass-ring backdrop-blur-md shadow-panel sm:gap-4 sm:p-4">
-          <CoachSprite mood={coachMood} className="h-16 w-16 sm:h-20 sm:w-20" />
+      <div className="play-coach-wrap shrink-0 px-3 pt-3 sm:px-5 sm:pt-4">
+        <div className="play-coach-card flex items-start gap-3 rounded-2xl bg-glass-bg p-3 ring-2 ring-glass-ring backdrop-blur-md shadow-panel sm:gap-4 sm:p-4">
+          <CoachSprite mood={coachMood} className="h-16 w-16 shrink-0 object-contain sm:h-20 sm:w-20" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <div className="flex items-center gap-2">
               <span className="font-display text-sm font-extrabold text-neon-cyan sm:text-base">
@@ -100,7 +93,7 @@ export function PlayShell({
         </div>
       </div>
 
-      <main className="flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 touch-pan-y sm:px-5 sm:py-4">
         {children}
       </main>
 

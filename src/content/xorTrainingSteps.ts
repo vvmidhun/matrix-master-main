@@ -27,13 +27,13 @@ function makeEpochs(): any[] {
     const curveT = Math.max(0, (t - 0.25) / 0.75)
     const boundary = t < 0.2 ? linearBoundary(-1.2, 1.1) : curvedBoundary(curveT)
 
-    let classifications: any = { '0,0': 0, '0,1': 0, '1,0': 0, '1,1': 0 }
-    if (t < 0.35) {
+    let classifications: any
+    if (i < 3) {
       classifications = { '0,0': 1, '0,1': 1, '1,0': 0, '1,1': 0 }
-    } else if (t < 0.65) {
+    } else if (i < 6) {
       classifications = { '0,0': 1, '0,1': 1, '1,0': 1, '1,1': 0 }
     } else {
-      classifications = { '0,0': 1, '0,1': 1, '1,0': 1, '1,1': 1 }
+      classifications = { '0,0': 0, '0,1': 1, '1,0': 1, '1,1': 0 }
     }
 
     const descriptions = [
@@ -73,10 +73,10 @@ function makeEpochs(): any[] {
 export const XOR_TRAINING_TASKS: readonly XorTrainingTask[] = [
   {
     id: 'xorMain',
-    title: 'Train a 2-Layer Network on the XOR Problem',
+    title: 'Solve the XOR challenge',
     epochs: makeEpochs(),
     winEpoch: 6,
     contextText:
-      'XOR truth table: (0,0)→0, (0,1)→1, (1,0)→1, (1,1)→0. A straight line CANNOT separate all 4. Press TRAIN EPOCH to let the hidden layer bend the boundary!',
+      'Solve three quick steps: choose the XOR output for each input pair, decide whether one straight line can separate the outputs, then watch a hidden layer learn the pattern.',
   },
 ]

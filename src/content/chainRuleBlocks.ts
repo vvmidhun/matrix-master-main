@@ -2,15 +2,36 @@ import type { ChainRuleTask } from '../types/game'
 
 export const CHAIN_RULE_TASKS: readonly ChainRuleTask[] = [
   {
-    id: 'dLossDW2',
-    title: '∂ℒ/∂W₂ — Chain from Loss to W₂',
+    id: 'forwardPassOrder',
+    title: 'Put the steps of a neural-network layer in order',
     blocks: [
-      { id: 'dLdy', label: '∂ℒ/∂ŷ', formula: '∂/∂ŷ [−y·log ŷ]', description: 'How loss changes with output' },
-      { id: 'dydz2', label: '∂ŷ/∂z₂', formula: '∂/∂z₂ sigmoid(z₂)', description: 'How output changes with z₂' },
-      { id: 'dz2dW2', label: '∂z₂/∂W₂', formula: '∂/∂W₂ [W₂·a₁+b₂]', description: 'How z₂ changes with W₂' },
+      {
+        id: 'input',
+        label: 'Input vector',
+        formula: 'x',
+        description: 'Start with the information given to the network.',
+      },
+      {
+        id: 'weightedSum',
+        label: 'Weighted sum + bias',
+        formula: 'z = W·x + b',
+        description: 'Multiply by the weights and add the bias.',
+      },
+      {
+        id: 'activation',
+        label: 'Activation',
+        formula: 'a = ReLU(z)',
+        description: 'Apply the activation function to the result.',
+      },
+      {
+        id: 'output',
+        label: 'Layer output',
+        formula: 'a',
+        description: 'Pass this result to the next layer.',
+      },
     ],
-    correctOrder: ['dLdy', 'dydz2', 'dz2dW2'],
+    correctOrder: ['input', 'weightedSum', 'activation', 'output'],
     contextText:
-      'Assemble the chain-rule product in the correct order. Each link is a partial derivative. Wrong order → chain snaps! Correct → glowing links!',
+      'A neural network uses a forward pass to move information through a layer. Put the four steps in order, from the input to the layer output.',
   },
 ]

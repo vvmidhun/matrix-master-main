@@ -17,6 +17,8 @@ type PlotPoint = {
   key: '0,0' | '0,1' | '1,0' | '1,1'
 }
 
+type PointKey = PlotPoint['key']
+
 const XOR_POINTS: readonly PlotPoint[] = [
   { x: 0, y: 0, label: 0, key: '0,0' },
   { x: 0, y: 1, label: 1, key: '0,1' },
@@ -28,13 +30,20 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
   const task = XOR_TRAINING_TASKS[0]
   const [epochIdx, setEpochIdx] = useState(0)
   const [isTraining, setIsTraining] = useState(false)
-  const [justWon, setJustWon] = useState(false)
+  const [trainingStarted, setTrainingStarted] = useState(false)
   const [starAnim, setStarAnim] = useState(0)
   const [scored, setScored] = useState(false)
+  const [studentLabels, setStudentLabels] = useState<Partial<Record<PointKey, 0 | 1>>>({})
+  const [labelsChecked, setLabelsChecked] = useState(false)
+  const [labelsCorrect, setLabelsCorrect] = useState(false)
+  const [lineAnswer, setLineAnswer] = useState<boolean | null>(null)
+  const [lineAnswerChecked, setLineAnswerChecked] = useState(false)
+  const [lineAnswerCorrect, setLineAnswerCorrect] = useState(false)
 
   const epoch = task.epochs[epochIdx]!
   const isWin = epochIdx >= task.winEpoch
   const isFinished = epochIdx >= task.epochs.length - 1
+  const canTrain = labelsCorrect && lineAnswerCorrect
 
   const handleSpeak = () => {
     mission.speak(task.contextText)
@@ -45,52 +54,40 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
   }, [epoch.classifications])
 
   useEffect(() => {
-    if (isWin && !justWon && !scored) {
-      setJustWon(true)
-    }
-  }, [isWin, justWon, scored])
-
-  const handleTrainOne = useCallback(() => {
-    if (isFinished) return
-    sfx.click()
-    setIsTraining(true)
-    setTimeout(() => {
-      setEpochIdx((prev) => Math.min(task.epochs.length - 1, prev + 1))
+    if (!isTraining) return
+    if (isFinished) {
       setIsTraining(false)
-    }, 520)
-  }, [task.epochs.length, isFinished])
+      return
+    }
 
-  const handleTrainFive = useCallback(() => {
-    if (isFinished) return
-    let count = 0
-    const maxStep = Math.min(5, task.epochs.length - 1 - epochIdx)
-    if (maxStep <= 0) return
+    const timeoutId = window.setTimeout(() => {
+      setEpochIdx((prev) => Math.min(task.epochs.length - 1, prev + 1))
+    }, 420)
+    return () => window.clearTimeout(timeoutId)
+  }, [epochIdx, isFinished, isTraining, task.epochs.length])
+
+  const handleCheckLabels = () => {
+    const correct = XOR_POINTS.every((point) => studentLabels[point.key] === point.label)
+    setLabelsChecked(true)
+    setLabelsCorrect(correct)
+    if (correct) sfx.tada()
+    else sfx.click()
+  }
+
+  const handleCheckLineAnswer = () => {
+    const correct = lineAnswer === false
+    setLineAnswerChecked(true)
+    setLineAnswerCorrect(correct)
+    if (correct) sfx.tada()
+    else sfx.click()
+  }
+
+  const handleStartTraining = useCallback(() => {
+    if (!canTrain || isFinished) return
     sfx.click()
-    const iv = setInterval(() => {
-      setEpochIdx((prev) => {
-        const next = Math.min(task.epochs.length - 1, prev + 1)
-        if (next === prev) {
-          clearInterval(iv)
-          setIsTraining(false)
-        }
-        return next
-      })
-      count++
-      if (count >= maxStep) {
-        clearInterval(iv)
-        setIsTraining(false)
-      }
-    }, 360)
+    setTrainingStarted(true)
     setIsTraining(true)
-  }, [epochIdx, task.epochs.length, isFinished])
-
-  const handleResetTraining = useCallback(() => {
-    if (scored) return
-    sfx.click()
-    setEpochIdx(0)
-    setJustWon(false)
-    setIsTraining(false)
-  }, [scored])
+  }, [canTrain, isFinished])
 
   const handleFinish = useCallback(() => {
     if (scored) return
@@ -162,7 +159,7 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
 
   return (
     <PlayShell
-      stageLabel="STAGE 6 · Train on XOR — FINALE"
+      stageLabel="STAGE 6 · Solve XOR — FINALE"
       stageNumber={6}
       totalStages={6}
       progress="6 / 6"
@@ -198,8 +195,147 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
           <h2 className="mb-1 font-display text-lg font-extrabold text-neon-lime sm:text-xl">
             {task.title}
           </h2>
-          <p className="text-sm leading-relaxed text-ink-2 sm:text-base">{task.contextText}</p>
+          <p className="text-sm leading-relaxed text-ink-2 sm:text-base">
+            First label the examples, then decide why a neural network needs a hidden layer to solve them.
+          </p>
         </motion.div>
+
+        <section
+          aria-labelledby="xor-challenge-title"
+          className="rounded-2xl bg-glass-bg p-4 ring-2 ring-glass-ring shadow-panel sm:p-5"
+        >
+          <div className="mb-4">
+            <p className="font-display text-xs font-bold uppercase tracking-wider text-neon-cyan">
+              Your challenge · {labelsCorrect ? (lineAnswerCorrect ? 'Step 3 of 3' : 'Step 2 of 3') : 'Step 1 of 3'}
+            </p>
+            <h2 id="xor-challenge-title" className="mt-1 font-display text-lg font-extrabold text-white sm:text-xl">
+              {labelsCorrect
+                ? lineAnswerCorrect
+                  ? 'Watch the hidden layer solve XOR'
+                  : 'Can one straight line separate these groups?'
+                : 'Choose the correct output for each input'}
+            </h2>
+            <p className="mt-1 text-sm leading-relaxed text-ink-2">
+              {labelsCorrect
+                ? lineAnswerCorrect
+                  ? 'You found the pattern and the limitation. Start training once and watch the boundary change by itself.'
+                  : 'Look at the four points on the graph before you decide.'
+                : 'For each input pair, choose an output. Hint: compare whether the two input values match.'}
+            </p>
+          </div>
+
+          {!labelsCorrect && (
+            <>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {XOR_POINTS.map((point) => (
+                  <div
+                    key={point.key}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-paper-2/50 px-3 py-2.5 ring-1 ring-glass-ring"
+                  >
+                    <span className="font-display text-sm font-bold text-white">
+                      Input ({point.x}, {point.y}) <span className="font-normal text-ink-2">→ output?</span>
+                    </span>
+                    <div className="flex gap-2">
+                      {([0, 1] as const).map((answer) => (
+                        <button
+                          key={answer}
+                          type="button"
+                          aria-pressed={studentLabels[point.key] === answer}
+                          onClick={() => {
+                            setStudentLabels((previous) => ({ ...previous, [point.key]: answer }))
+                            setLabelsChecked(false)
+                          }}
+                          className={`min-h-10 min-w-10 rounded-lg font-display font-extrabold ring-2 transition ${
+                            studentLabels[point.key] === answer
+                              ? answer === 1
+                                ? 'bg-neon-cyan text-paper ring-neon-cyan'
+                                : 'bg-neon-fuchsia text-paper ring-neon-fuchsia'
+                              : 'bg-paper-2 text-white ring-glass-ring hover:ring-neon-cyan'
+                          }`}
+                        >
+                          {answer}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {labelsChecked && !labelsCorrect && (
+                <p role="status" className="mt-3 text-sm font-bold text-neon-amber">
+                  Check the rule: same inputs give 0; different inputs give 1. Change any answer and try again.
+                </p>
+              )}
+              <ChunkyButton
+                variant="cyan"
+                size="md"
+                onClick={handleCheckLabels}
+                disabled={XOR_POINTS.some((point) => studentLabels[point.key] === undefined)}
+                className="mt-3 w-full sm:w-auto"
+              >
+                Check my outputs
+              </ChunkyButton>
+            </>
+          )}
+
+          {labelsCorrect && !lineAnswerCorrect && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Yes, one line can do it', value: true },
+                  { label: 'No, one line cannot', value: false },
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    aria-pressed={lineAnswer === option.value}
+                    onClick={() => {
+                      setLineAnswer(option.value)
+                      setLineAnswerChecked(false)
+                    }}
+                    className={`min-h-12 rounded-xl px-3 py-2 text-sm font-bold ring-2 transition ${
+                      lineAnswer === option.value
+                        ? 'bg-neon-cyan text-paper ring-neon-cyan'
+                        : 'bg-paper-2 text-white ring-glass-ring hover:ring-neon-cyan'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {lineAnswerChecked && !lineAnswerCorrect && (
+                <p role="status" className="mt-3 text-sm font-bold text-neon-amber">
+                  Not quite. The 1s and 0s sit on opposite corners, so a single straight line cannot split them.
+                </p>
+              )}
+              <ChunkyButton
+                variant="cyan"
+                size="md"
+                onClick={handleCheckLineAnswer}
+                disabled={lineAnswer === null}
+                className="mt-3 w-full sm:w-auto"
+              >
+                Check my answer
+              </ChunkyButton>
+            </>
+          )}
+
+          {lineAnswerCorrect && (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p role="status" className="text-sm font-bold text-neon-lime">
+                Exactly. The hidden layer lets the network bend its boundary around the points.
+              </p>
+              <ChunkyButton
+                variant="fuchsia"
+                size="md"
+                onClick={handleStartTraining}
+                disabled={isTraining || isFinished || scored}
+                className="w-full shrink-0 sm:w-auto"
+              >
+                {isTraining ? 'Watching the network learn…' : isFinished ? 'Training complete!' : '▶ Watch it learn'}
+              </ChunkyButton>
+            </div>
+          )}
+        </section>
 
         <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
           <motion.div
@@ -416,14 +552,14 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-display text-[10px] font-bold uppercase tracking-[0.18em] text-neon-amber sm:text-xs">
-                    Training Status
+                    Network Progress
                   </p>
                   <div className="flex items-baseline gap-2 mt-0.5">
                     <span className="font-display text-3xl font-extrabold text-white sm:text-4xl">
-                      Epoch {epoch.epoch}
+                      Step {epoch.epoch}
                     </span>
                     <span className="font-display text-sm font-bold text-white/50">
-                      / {task.epochs.length - 1}
+                      / {task.epochs.length - 1} · network learning
                     </span>
                   </div>
                 </div>
@@ -441,7 +577,13 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
                   <span className={`font-display text-sm font-extrabold sm:text-base ${
                     isFinished ? 'text-neon-lime' : isWin ? 'text-neon-amber' : 'text-neon-fuchsia'
                   }`}>
-                    {isFinished ? '✅ DONE' : isWin ? '🎯 XOR SOLVED' : '⏳ IN PROGRESS'}
+                    {isFinished
+                      ? '✅ LEARNED'
+                      : isWin
+                        ? '🎯 PATTERN FOUND'
+                        : trainingStarted
+                          ? '⏳ LEARNING'
+                          : '▶ READY'}
                   </span>
                 </motion.div>
               </div>
@@ -449,7 +591,7 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
               <div className="mb-4">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-display text-xs font-bold uppercase tracking-wider text-neon-fuchsia sm:text-sm">
-                    ℒ Loss
+                    Network error
                   </span>
                   <span
                     className="font-display text-xl font-extrabold sm:text-2xl"
@@ -461,6 +603,7 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
                     {epoch.loss.toFixed(4)}
                   </span>
                 </div>
+                <p className="mb-2 text-xs text-ink-2">Lower error means the network is making better predictions.</p>
                 <div className="relative h-4 w-full overflow-hidden rounded-full bg-paper/60 ring-2 ring-glass-ring">
                   <motion.div
                     key={epoch.epoch}
@@ -497,10 +640,11 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl bg-glass-bg p-4 ring-2 ring-glass-ring backdrop-blur-md shadow-panel sm:p-5">
-              <p className="mb-3 font-display text-[10px] font-bold uppercase tracking-[0.18em] text-neon-cyan sm:text-xs">
-                LIVE WEIGHTS · W₁ (2×2)
-              </p>
-              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+              <details>
+                <summary className="cursor-pointer font-display text-sm font-bold text-neon-cyan">
+                  Optional: see how the network changes its weights
+                </summary>
+                <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3">
                 {epoch.weightsW1.map((row, r) =>
                   row.map((v, c) => (
                     <motion.div
@@ -554,51 +698,21 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
                     {epoch.biasB2}
                   </p>
                 </div>
-              </div>
+                </div>
+              </details>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-              <ChunkyButton
-                variant={scored ? 'ghost' : 'fuchsia'}
-                size="lg"
-                onClick={handleTrainOne}
-                disabled={scored || isFinished || isTraining}
-                className="w-full"
-              >
-                ▶ Train 1 Epoch
-              </ChunkyButton>
-              <ChunkyButton
-                variant={scored ? 'ghost' : 'cyan'}
-                size="lg"
-                onClick={handleTrainFive}
-                disabled={scored || isFinished || isTraining}
-                className="w-full"
-              >
-                ⏩ ×5 Fast Train
-              </ChunkyButton>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-              <ChunkyButton
-                variant="ghost"
-                size="md"
-                onClick={handleResetTraining}
-                disabled={scored || epochIdx === 0 || isTraining}
-                className="w-full"
-              >
-                ↺ Reset Training
-              </ChunkyButton>
               {!scored && isWin && (
                 <ChunkyButton
                   variant="success"
                   size="md"
                   onClick={handleFinish}
+                  disabled={isTraining}
                   className="w-full"
                 >
                   🏁 Complete Mission
                 </ChunkyButton>
-              )}
-              {!scored && !isWin && (
-                <div className="w-full" />
               )}
             </div>
 
@@ -654,13 +768,6 @@ export function XorTrainingScreen({ mission }: { mission: MissionApi }) {
                         )
                       })}
                     </div>
-                    <p className="text-sm text-ink-2">
-                      Earned{' '}
-                      <span className="font-bold text-neon-lime">
-                        {epochIdx >= task.epochs.length - 1 ? '2 / 2' : '1 / 2'}
-                      </span>{' '}
-                      stars for Stage 6
-                    </p>
                   </div>
                 </motion.div>
               )}

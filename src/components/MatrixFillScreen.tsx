@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import type { MissionApi } from '../state/useMission'
 import { PlayShell } from './ui/PlayShell'
@@ -18,10 +18,6 @@ function makeKey(section: SectionKey, row: number, col: number): CellKey {
 
 type CellStatus = Record<CellKey, 'correct' | 'wrong' | undefined>
 
-const STARS_PATTERN_MF: Array<{ filled: boolean; delay: number }> = [
-  { filled: false, delay: 0 },
-  { filled: false, delay: 0.12 },
-]
 
 export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
   const task = MATRIX_FILL_TASKS[0]
@@ -40,9 +36,7 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
   const [cellStatus, setCellStatus] = useState<CellStatus>({})
   const [allChecked, setAllChecked] = useState(false)
   const [allCorrect, setAllCorrect] = useState(false)
-  const [starAnim, setStarAnim] = useState(0)
   const [shakeKey, setShakeKey] = useState(0)
-  const hiddenInputRef = useRef<HTMLInputElement>(null)
 
   const handleSpeak = () => {
     mission.speak(task.contextText)
@@ -75,22 +69,19 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
   const setActiveValue = (v: string) => {
     if (!activeKey) return
     setCellValues((prev) => ({ ...prev, [activeKey]: v }))
+    setCellStatus((prev) => prev[activeKey]
+      ? { ...prev, [activeKey]: undefined }
+      : prev)
     if (allChecked) {
       setAllChecked(false)
-      setCellStatus((prev) => ({ ...prev, [activeKey]: undefined }))
     }
   }
-
-  useEffect(() => {
-    if (activeKey) {
-      requestAnimationFrame(() => hiddenInputRef.current?.focus())
-    }
-  }, [activeKey])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!activeKey) return
       if (allCorrect) return
+      if (e.target instanceof HTMLInputElement) return
       if (e.key === 'Backspace') {
         e.preventDefault()
         setActiveValue(cellValues[activeKey]!.slice(0, -1))
@@ -151,7 +142,6 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
       sfx.tada()
       setAllCorrect(true)
       mission.setCoach('cheer', `Perfect! All 4 cells correct. z = W·x + b with biases, and ReLU keeps values >= 0. Stage 2 locked in!`)
-      setStarAnim(Date.now())
       const prevSnap = mission.scoreSnap
       const perStep: PerStepStars = {
         dotProduct: prevSnap?.perStep?.dotProduct ?? 0,
@@ -196,6 +186,33 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
     mission.advanceStage('forwardPass')
   }
 
+  const handleCheckCell = (key: CellKey) => {
+    const isZ = key.startsWith('z')
+    const rowIdx = Number(key.split('-')[1]!)
+    const colIdx = Number(key.split('-')[2]!)
+    const cell = (isZ ? task.zCells : task.reluCells).find(
+      (candidate) => candidate.row === rowIdx && candidate.col === colIdx,
+    )
+    if (!cell) return
+
+    const enteredValue = cellValues[key]?.trim() ?? ''
+    const numericValue = enteredValue === '' || enteredValue === '-'
+      ? null
+      : Number(enteredValue)
+    const isCorrect =
+      numericValue != null &&
+      Number.isFinite(numericValue) &&
+      Math.abs(numericValue - cell.correctValue) <= cell.tolerance
+
+    setCellStatus((prev) => ({ ...prev, [key]: isCorrect ? 'correct' : 'wrong' }))
+    if (allChecked) setAllChecked(false)
+    if (isCorrect) {
+      sfx.ding()
+    } else {
+      sfx.error()
+    }
+  }
+
   const toggleCell = (key: CellKey) => {
     sfx.click()
     if (expandedCell === key) {
@@ -213,6 +230,11 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
     const isZ = key.startsWith('z')
     const rowIdx = Number(key.split('-')[1]!)
     const breakdown = isZ ? zBreakdown[rowIdx]! : reluBreakdown[rowIdx]!
+    const enteredZ = cellValues[makeKey('z', rowIdx, 0)]?.trim() ?? ''
+    const enteredZNumber =
+      enteredZ !== '' && enteredZ !== '-' && Number.isFinite(Number(enteredZ))
+        ? Number(enteredZ)
+        : null
 
     const ringStyle =
       status === 'correct'
@@ -225,24 +247,26 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
 
     return (
       <div className="w-full">
-        <motion.button
-          key={`cell-${key}`}
-          type="button"
-          onClick={() => toggleCell(key)}
-          className={`relative w-full rounded-2xl p-3 text-left backdrop-blur-md transition-all duration-200 sm:p-4 ${isActive ? 'z-10' : ''}`}
+        <div
+          className={`relative w-full rounded-2xl backdrop-blur-md transition-all duration-200 ${isActive ? 'z-10' : ''}`}
           style={{
             background: 'linear-gradient(135deg, rgba(20,26,58,0.82) 0%, rgba(30,37,80,0.7) 100%)',
             border: '2px solid',
-            minHeight: expanded ? undefined : 76,
             ...ringStyle,
           }}
-          whileHover={!allCorrect ? { scale: 1.015 } : {}}
-          whileTap={!allCorrect ? { scale: 0.985 } : {}}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 sm:gap-3">
+          <motion.button
+            key={`cell-${key}`}
+            type="button"
+            onClick={() => toggleCell(key)}
+            className="flex min-h-[76px] w-full items-center justify-between gap-3 rounded-2xl p-3 text-left backdrop-blur-md transition-all duration-200 sm:p-4"
+            style={{ background: 'transparent' }}
+            whileHover={!allCorrect ? { scale: 1.005 } : {}}
+            whileTap={!allCorrect ? { scale: 0.99 } : {}}
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
               <span
-                className="inline-flex h-9 min-w-[44px] items-center justify-center rounded-lg px-2 font-display text-sm font-extrabold sm:text-base"
+                className="inline-flex h-9 min-w-[44px] shrink-0 items-center justify-center rounded-lg px-2 font-display text-sm font-extrabold sm:text-base"
                 style={{
                   background: isZ
                     ? 'linear-gradient(135deg, rgba(124,58,237,0.5), rgba(168,85,247,0.38))'
@@ -253,8 +277,8 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
               >
                 {label}
               </span>
-              <div
-                className="min-w-[80px] flex-1 text-right font-display text-2xl font-extrabold sm:min-w-[120px] sm:text-3xl"
+              <span
+                className="min-w-0 flex-1 truncate text-right font-display text-2xl font-extrabold sm:text-3xl"
                 style={{
                   color:
                     status === 'correct'
@@ -273,13 +297,13 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
                 }}
               >
                 {value || '—'}
-              </div>
+              </span>
               {status === 'correct' && (
                 <motion.span
                   initial={{ scale: 0, rotate: -30 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 280, damping: 16 }}
-                  className="text-2xl sm:text-3xl"
+                  className="shrink-0 text-2xl sm:text-3xl"
                   style={{ color: '#A3E635', filter: 'drop-shadow(0 0 10px rgba(163,230,53,0.7))' }}
                 >
                   ✓
@@ -291,7 +315,7 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
                   initial={{ x: 0 }}
                   animate={{ x: [-7, 7, -5, 5, 0] }}
                   transition={{ duration: 0.4 }}
-                  className="text-2xl sm:text-3xl"
+                  className="shrink-0 text-2xl sm:text-3xl"
                   style={{ color: '#F472B6', filter: 'drop-shadow(0 0 10px rgba(244,114,182,0.7))' }}
                 >
                   ✗
@@ -308,7 +332,7 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
             >
               ▾
             </span>
-          </div>
+          </motion.button>
 
           <AnimatePresence>
             {expanded && (
@@ -320,7 +344,7 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
                 transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
                 className="overflow-hidden"
               >
-                <div className="rounded-xl border border-glass-ring bg-paper/40 p-3 sm:p-4">
+                <div className="rounded-b-xl border-t border-glass-ring bg-paper/40 p-3 sm:p-4">
                   {isZ ? (
                     <>
                       <p className="mb-2 font-display text-xs font-bold uppercase tracking-wider text-neon-fuchsia sm:text-sm">
@@ -386,93 +410,105 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
                           </span>
                         </motion.div>
                       </div>
-                      <motion.div
-                        initial={{ opacity: 0, y: 6, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.4, delay: 0.38 + (breakdown as typeof zBreakdown[0]).pairs.length * 0.12, ease: [0.2, 0.8, 0.2, 1] }}
-                        className="mt-3 flex items-center justify-center gap-3"
-                      >
-                        <span className="font-display text-xl font-extrabold text-white/80 sm:text-2xl">
-                          =
-                        </span>
-                        <span
-                          className="rounded-xl px-4 py-1.5 font-display text-2xl font-extrabold text-paper sm:text-3xl"
-                          style={{
-                            background: 'linear-gradient(135deg, #7C3AED 0%, #22D3EE 100%)',
-                            boxShadow: '0 0 22px rgba(124,58,237,0.55)',
-                          }}
+                      {status && (
+                        <motion.p
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`mt-3 text-center font-display text-sm font-extrabold sm:text-base ${status === 'correct' ? 'text-neon-lime' : 'text-bad'}`}
                         >
-                          {(breakdown as typeof zBreakdown[0]).total.toFixed(2)}
-                        </span>
-                      </motion.div>
+                          {status === 'correct'
+                            ? `Correct! ${label} = ${(breakdown as typeof zBreakdown[0]).total.toFixed(2)}`
+                            : `Not quite. The correct value is ${(breakdown as typeof zBreakdown[0]).total.toFixed(2)}.`}
+                        </motion.p>
+                      )}
                     </>
                   ) : (
                     <>
                       <p className="mb-2 font-display text-xs font-bold uppercase tracking-wider text-neon-cyan sm:text-sm">
                         ReLU(z) = max(0, z)
                       </p>
-                      <motion.div
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="flex flex-wrap items-center justify-center gap-2"
-                      >
-                        <span className="rounded-lg px-3 py-1.5 font-display text-sm font-extrabold text-white" style={{
-                          background: 'linear-gradient(135deg, rgba(124,58,237,0.55), rgba(168,85,247,0.38))',
-                          boxShadow: '0 0 12px rgba(124,58,237,0.4)',
-                        }}>
-                          z = {(breakdown as typeof reluBreakdown[0]).input.toFixed(2)}
-                        </span>
-                        <span className="font-display text-xl font-bold text-white/70">→</span>
-                        {(breakdown as typeof reluBreakdown[0]).clamped ? (
-                          <span className="rounded-lg px-3 py-1.5 font-display text-sm font-extrabold text-neon-amber" style={{
-                            background: 'rgba(251,191,36,0.14)',
-                            border: '1px solid rgba(251,191,36,0.55)',
+                      {enteredZNumber != null ? (
+                        <motion.div
+                          key={`${rowIdx}-${enteredZ}`}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="flex flex-wrap items-center justify-center gap-2"
+                        >
+                          <span className="rounded-lg px-3 py-1.5 font-display text-sm font-extrabold text-white" style={{
+                            background: 'linear-gradient(135deg, rgba(124,58,237,0.55), rgba(168,85,247,0.38))',
+                            boxShadow: '0 0 12px rgba(124,58,237,0.4)',
                           }}>
-                            clamped to 0 (negative → 0)
+                            z{rowIdx + 1} = {enteredZNumber.toFixed(2)}
                           </span>
-                        ) : (
+                          <span className="font-display text-xl font-bold text-white/70">→</span>
                           <span className="rounded-lg px-3 py-1.5 font-display text-sm font-extrabold text-paper" style={{
                             background: 'linear-gradient(135deg, #A3E635, #22D3EE)',
-                            boxShadow: '0 0 18px rgba(163,230,53,0.55)',
+                            boxShadow: '0 0 18px rgba(163,230,53,0.35)',
                           }}>
-                            stays {(breakdown as typeof reluBreakdown[0]).output.toFixed(2)} ✓
+                            a{rowIdx + 1} = max(0, z{rowIdx + 1}) = ??
                           </span>
-                        )}
-                      </motion.div>
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.4, delay: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-                        className="mt-3 flex items-center justify-center gap-3"
-                      >
-                        <span className="font-display text-xl font-extrabold text-white/80 sm:text-2xl">
-                          a =
-                        </span>
-                        <span
-                          className="rounded-xl px-4 py-1.5 font-display text-2xl font-extrabold text-paper sm:text-3xl"
-                          style={{
-                            background: 'linear-gradient(135deg, #22D3EE 0%, #A3E635 100%)',
-                            boxShadow: '0 0 22px rgba(34,211,238,0.55)',
-                          }}
+                        </motion.div>
+                      ) : (
+                        <p className="text-center text-sm font-semibold text-ink-2">
+                          Enter z{rowIdx + 1} in Step 1 to see its ReLU value here.
+                        </p>
+                      )}
+                      {status && (
+                        <motion.p
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`mt-3 text-center font-display text-sm font-extrabold sm:text-base ${status === 'correct' ? 'text-neon-lime' : 'text-bad'}`}
                         >
-                          {(breakdown as typeof reluBreakdown[0]).output.toFixed(2)}
-                        </span>
-                      </motion.div>
+                          {status === 'correct'
+                            ? `Correct! ${label} = ${(breakdown as typeof reluBreakdown[0]).output.toFixed(2)}`
+                            : `Not quite. The correct value is ${(breakdown as typeof reluBreakdown[0]).output.toFixed(2)}.`}
+                        </motion.p>
+                      )}
                     </>
                   )}
+                  <div className="mt-4 space-y-3 rounded-xl border border-glass-ring/70 bg-paper/50 p-3 sm:p-4">
+                    <label
+                      htmlFor={`answer-${key}`}
+                      className="block font-display text-xs font-bold uppercase tracking-wider text-ink-2 sm:text-sm"
+                    >
+                      Your answer for {label}
+                    </label>
+                    <input
+                      id={`answer-${key}`}
+                      type="text"
+                      inputMode="decimal"
+                      aria-label={`Answer for ${label}`}
+                      disabled={allCorrect}
+                      className="min-h-12 w-full rounded-xl border-2 border-glass-ring bg-paper/80 px-4 text-right font-display text-2xl font-extrabold text-ink outline-none focus:border-neon-cyan sm:text-3xl"
+                      value={value}
+                      onChange={(e) => {
+                        const nextValue = e.target.value.replace(/[^0-9.-]/g, '')
+                        const sanitized = nextValue.replace(/\.(?=.*\.)/g, '').replace(/(?!^)-/g, '')
+                        setCellValues((prev) => ({ ...prev, [key]: sanitized }))
+                        if (cellStatus[key]) {
+                          setCellStatus((prev) => ({ ...prev, [key]: undefined }))
+                        }
+                        if (allChecked) setAllChecked(false)
+                      }}
+                    />
+                    <NumericInputPad
+                      value={value}
+                      onChange={setActiveValue}
+                      onSubmit={() => handleCheckCell(key)}
+                      disabled={allCorrect}
+                      allowDecimal
+                      allowNegative
+                    />
+                  </div>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.button>
+        </div>
       </div>
     )
   }
-
-  const starLayout = allCorrect
-    ? STARS_PATTERN_MF.map((s, i) => ({ ...s, filled: i < 2 }))
-    : STARS_PATTERN_MF
 
   const correctCount = Object.values(cellStatus).filter((s) => s === 'correct').length
   const totalCells = task.zCells.length + task.reluCells.length
@@ -648,37 +684,6 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
           </div>
 
           {!allCorrect && (
-            <div className="mb-4 rounded-xl border border-glass-ring bg-paper-2/50 p-3 sm:p-4">
-              <p className="mb-2 text-center font-display text-xs font-bold tracking-wider text-white/75 sm:text-sm">
-                {activeKey
-                  ? `EDITING: ${activeKey.startsWith('z') ? 'z' : 'a'}${Number(activeKey.split('-')[1]!) + 1} — use keypad below or type`
-                  : 'Tap a cell to expand it and edit its value'}
-              </p>
-              <NumericInputPad
-                variant="cyan"
-                value={activeKey ? (cellValues[activeKey] ?? '') : ''}
-                onChange={(v) => setActiveValue(v)}
-                disabled={!activeKey || allCorrect}
-                allowDecimal={true}
-                allowNegative={true}
-              />
-              <input
-                ref={hiddenInputRef}
-                type="text"
-                inputMode="decimal"
-                aria-label="Active cell value"
-                className="absolute h-0 w-0 opacity-0"
-                value={activeKey ? (cellValues[activeKey] ?? '') : ''}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/[^0-9.-]/g, '')
-                  const deduped = v.replace(/\.(?=.*\.)/g, '').replace(/(?!^)-/g, '')
-                  setActiveValue(deduped)
-                }}
-              />
-            </div>
-          )}
-
-          {!allCorrect && (
             <div className="flex justify-center">
               <ChunkyButton variant="fuchsia" size="lg" onClick={handleCheck}>
                 ✓ Check All Cells
@@ -710,53 +715,6 @@ export function MatrixFillScreen({ mission }: { mission: MissionApi }) {
                   </span>{' '}
                   cells correct. Tap cells marked ✗ to fix and re-check!
                 </p>
-              </motion.div>
-            )}
-            {allCorrect && (
-              <motion.div
-                key="mf-success"
-                initial={{ opacity: 0, y: 16, scale: 0.92 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
-                className="mt-5 rounded-xl p-4 ring-2"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(163,230,53,0.18), rgba(34,211,238,0.14))',
-                  borderColor: 'rgba(163,230,53,0.55)',
-                  boxShadow: '0 0 22px rgba(163,230,53,0.3)',
-                }}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <p className="font-display text-lg font-extrabold text-neon-lime sm:text-xl">
-                    ✨ Stage 2 Cleared — Neural Layer Complete! ✨
-                  </p>
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    {starLayout.map((s, idx) => (
-                      <motion.span
-                        key={`star-${idx}-${starAnim}`}
-                        initial={{ scale: 0, rotate: -40 }}
-                        animate={s.filled ? { scale: 1, rotate: 0 } : { scale: 0.6, rotate: 0, opacity: 0.3 }}
-                        transition={{
-                          duration: 0.5,
-                          delay: 0.2 + s.delay,
-                          ease: [0.2, 0.8, 0.2, 1],
-                          type: s.filled ? 'spring' : undefined,
-                          stiffness: s.filled ? 260 : undefined,
-                        }}
-                        className="text-4xl sm:text-5xl"
-                        style={{
-                          color: s.filled ? '#FBBF24' : '#6B7280',
-                          filter: s.filled ? 'drop-shadow(0 0 12px rgba(251,191,36,0.85))' : 'none',
-                        }}
-                      >
-                        ★
-                      </motion.span>
-                    ))}
-                  </div>
-                  <p className="text-sm text-ink-2">
-                    Earned <span className="font-bold text-neon-lime">2 / 2</span> stars for Stage 2
-                  </p>
-                </div>
               </motion.div>
             )}
           </AnimatePresence>

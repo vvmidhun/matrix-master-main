@@ -124,7 +124,7 @@ export default function App() {
       )}
 
       {phase === 'dotProduct' && (
-        <section aria-label="Stage 1: Dot Product" className="h-screen w-full">
+        <section aria-label="Stage 1: Dot Product" className="game-screen h-dvh w-full">
           <Suspense fallback={<ScreenFallback />}>
             <DotProductScreen mission={mission} />
           </Suspense>
@@ -132,7 +132,7 @@ export default function App() {
       )}
 
       {phase === 'matrixFill' && (
-        <section aria-label="Stage 2: Matrix Fill" className="h-screen w-full">
+        <section aria-label="Stage 2: Matrix Fill" className="game-screen h-dvh w-full">
           <Suspense fallback={<ScreenFallback />}>
             <MatrixFillScreen mission={mission} />
           </Suspense>
@@ -140,7 +140,7 @@ export default function App() {
       )}
 
       {phase === 'forwardPass' && (
-        <section aria-label="Stage 3: Forward Pass" className="h-screen w-full">
+        <section aria-label="Stage 3: Forward Pass" className="game-screen h-dvh w-full">
           <Suspense fallback={<ScreenFallback />}>
             <ForwardPassScreen mission={mission} />
           </Suspense>
@@ -148,7 +148,7 @@ export default function App() {
       )}
 
       {phase === 'lossCalc' && (
-        <section aria-label="Stage 4: Loss" className="h-screen w-full">
+        <section aria-label="Stage 4: Chapter Check" className="game-screen h-dvh w-full">
           <Suspense fallback={<ScreenFallback />}>
             <LossScreen mission={mission} />
           </Suspense>
@@ -156,7 +156,7 @@ export default function App() {
       )}
 
       {phase === 'chainRule' && (
-        <section aria-label="Stage 5: Chain Rule" className="h-screen w-full">
+        <section aria-label="Stage 5: Build the Forward Pass" className="game-screen h-dvh w-full">
           <Suspense fallback={<ScreenFallback />}>
             <ChainRuleScreen mission={mission} />
           </Suspense>
@@ -164,7 +164,7 @@ export default function App() {
       )}
 
       {phase === 'xorTraining' && (
-        <section aria-label="Stage 6: XOR Training" className="h-screen w-full">
+        <section aria-label="Stage 6: Solve the XOR Challenge" className="game-screen h-dvh w-full">
           <Suspense fallback={<ScreenFallback />}>
             <XorTrainingScreen mission={mission} />
           </Suspense>
@@ -172,7 +172,7 @@ export default function App() {
       )}
 
       {phase === 'results' && (
-        <section aria-label="Mission results" className="h-screen w-full">
+        <section aria-label="Mission results" className="game-screen h-dvh w-full">
           <Suspense fallback={<ScreenFallback />}>
             <ResultsScreen mission={mission} />
           </Suspense>
@@ -180,7 +180,7 @@ export default function App() {
       )}
 
       {phase === 'badge' && (
-        <section aria-label="Mission badge" className="h-screen w-full">
+        <section aria-label="Mission badge" className="game-screen h-dvh w-full">
           <Suspense fallback={<ScreenFallback />}>
             <BadgeScreen mission={mission} />
           </Suspense>
@@ -188,7 +188,7 @@ export default function App() {
       )}
 
       {phase === 'reflect' && (
-        <section aria-label="Reflection" className="h-screen w-full">
+        <section aria-label="Reflection" className="game-screen h-dvh w-full">
           <Suspense fallback={<ScreenFallback />}>
             <ReflectScreen mission={mission} />
           </Suspense>
